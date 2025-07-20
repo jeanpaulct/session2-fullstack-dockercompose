@@ -1,0 +1,41 @@
+
+
+services:
+  # El Gateway que balanceará la carga
+  traefik:
+    image: "traefik:v3.0"
+    container_name: "traefik"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      # Puerto para el tráfico web de los usuarios
+      - "80:80"
+      # Puerto para el Dashboard de Traefik
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - traefik-net
+
+  # Nuestro servicio web que vamos a escalar
+  webapp:
+    image: "traefik/whoami"
+    # IMPORTANTE: No definas un 'container_name' aquí.
+    # Docker necesita crear nombres únicos para cada réplica.
+    networks:
+      - traefik-net
+    labels:
+      # Habilitamos Traefik para este servicio
+      - "traefik.enable=true"
+      # Creamos la regla de enrutamiento. Accederemos a través de http://app.localhost
+      - "traefik.http.routers.webapp.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.webapp.entrypoints=web"
+      # Definimos el puerto interno del servicio que Traefik usará
+      - "traefik.http.services.webapp.loadbalancer.server.port=80"
+
+networks:
+  traefik-net:
+    driver: bridge
